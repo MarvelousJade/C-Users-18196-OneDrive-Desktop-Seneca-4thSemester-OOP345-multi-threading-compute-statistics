@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <thread>
@@ -104,8 +106,28 @@ namespace seneca
 	//   part of the data. Add computed variance-factors to obtain total variance.
 	// Save the data into a file with filename held by the argument `target_file`.
 	// Also, read the workshop instruction.
+	int ProcessData::operator()(const std::string& filename, double& averageValue, double& varianceValue) {
+		computeAvgFactor(data, total_items, total_items, averageValue);	
+		computeVarFactor(data, total_items, total_items, averageValue, varianceValue);
+
+		std::ofstream file(filename, std::ios::binary);	
+		if(!file) throw std::invalid_argument("Invalid filename: " + filename);
+
+		int bytesSize = 4;
+		file.write(reinterpret_cast<char*>(&total_items), bytesSize);
+		if(!file) throw std::runtime_error("Failed to write total_items to file.");
+
+		for (int i =0; i < total_items; i++) {
+			file.write(reinterpret_cast<char*>(&data[i]), bytesSize);
+			if(!file) throw std::runtime_error("Failed to write data item to file at index " + std::to_string(i));
+		};		
+
+		file.close();
+
+		return 0;
+	};
 
 
 
-
+	
 }
