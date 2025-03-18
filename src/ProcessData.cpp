@@ -1,5 +1,6 @@
 // Exercise - Multi-Threading, Thread Class
 
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <functional>
@@ -12,6 +13,7 @@
 
 namespace seneca
 {
+	const int bytesSize = 4;
 	// The following function receives array (pointer) as the first argument, number of array 
 	//   elements (size) as second argument, divisor as the third argument, and avg as fourth argument. 
 	//   size and divisor are not necessarily same. When size and divisor hold same value, avg will 
@@ -60,7 +62,6 @@ namespace seneca
 		std::ifstream file(filename, std::ios::binary);	
 		if(!file) throw std::invalid_argument("Invalid filename: " + filename);
 
-		int bytesSize = 4;
 		file.read(reinterpret_cast<char*>(&total_items), bytesSize);
 		if(!file) throw std::runtime_error("Failed to read total_items from file.");
 	
@@ -107,13 +108,40 @@ namespace seneca
 	// Save the data into a file with filename held by the argument `target_file`.
 	// Also, read the workshop instruction.
 	int ProcessData::operator()(const std::string& filename, double& averageValue, double& varianceValue) {
-		computeAvgFactor(data, total_items, total_items, averageValue);	
-		computeVarFactor(data, total_items, total_items, averageValue, varianceValue);
+		using namespace std::placeholders;
+		auto bindedComputeAvgFactor = std::bind(computeAvgFactor, _1, _2, total_items, _3);
 
+		std::vector<std::thread> threads;
+		for(int i = 0; i < num_threads; i++) {
+			int* arr = &data[p_indices[i]];
+			int size = p_indices[i + 1] - p_indices[i];
+			threads.emplace_back(bindedComputeAvgFactor, arr, size, std::ref(averages[i]));
+		}
+		for(auto& t : threads) t.join();
+
+		averageValue = 0.0; 
+		for(int i = 0; i < num_threads; i++) {
+			averageValue += averages[i];
+		}
+
+		auto bindedComputeVarFactor = std::bind(computeVarFactor, _1, _2, total_items, averageValue, _3);
+
+		threads.clear();
+		for(int i = 0; i < num_threads; i++) {
+			int* arr = &data[p_indices[i]];
+			int size = p_indices[i + 1] - p_indices[i];
+			threads.emplace_back(bindedComputeVarFactor, arr, size, std::ref(variances[i]));
+		}
+		for(auto& t : threads) t.join();
+		
+		varianceValue = 0.0; 
+		for(int i = 0; i < num_threads; i++) {
+			varianceValue += variances[i];
+		}
+		
 		std::ofstream file(filename, std::ios::binary);	
 		if(!file) throw std::invalid_argument("Invalid filename: " + filename);
 
-		int bytesSize = 4;
 		file.write(reinterpret_cast<char*>(&total_items), bytesSize);
 		if(!file) throw std::runtime_error("Failed to write total_items to file.");
 
