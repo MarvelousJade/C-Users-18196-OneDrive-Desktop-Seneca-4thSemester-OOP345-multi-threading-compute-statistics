@@ -55,8 +55,21 @@ namespace seneca
 		//         memory for "data".
 		//       The file is binary and has the format described in the specs.
 
+		std::ifstream file(filename, std::ios::binary);	
+		if(!file) throw std::invalid_argument("Invalid filename: " + filename);
 
+		int bytesSize = 4;
+		file.read(reinterpret_cast<char*>(&total_items), bytesSize);
+		if(!file) throw std::runtime_error("Failed to read total_items from file.");
+	
+		data = new int[total_items];
 
+		for (int i =0; i < total_items; i++) {
+			file.read(reinterpret_cast<char*>(&data[i]), bytesSize);
+			if(!file) throw std::runtime_error("Error reading data item at index " + std::to_string(i));
+		};		
+
+		file.close();
 
 		std::cout << "Item's count in file '"<< filename << "': " << total_items << std::endl;
 		std::cout << "  [" << data[0] << ", " << data[1] << ", " << data[2] << ", ... , "
